@@ -1,0 +1,18 @@
+name: Keepalive
+
+# Free-tier Render sleeps after idle, and a cold BazaarSwap backend returns empty
+# quote races. The provider keeps its own backend warm; directories that list it
+# (cardano-defi-mcp) stay neutral.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the BazaarSwap API
+        run: curl -s -m 30 -o /dev/null -w "api: %{http_code}\n" https://bazaar-web.onrender.com/health || true
