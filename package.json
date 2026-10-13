@@ -1,0 +1,47 @@
+{
+  "name": "bazaarswap-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for BazaarSwap: cross-chain swap quotes into Cardano and unsigned swap transactions",
+  "type": "module",
+  "license": "Apache-2.0",
+  "author": "Fortress Enterprises",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fortress-Enterprises/bazaarswap-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "cardano",
+    "cross-chain",
+    "swap",
+    "bazaarswap"
+  ],
+  "bin": {
+    "bazaarswap-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build && npm test",
+    "execute": "npx tsx examples/execute-swap.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1",
+    "viem": "^2.56.8",
+    "tsx": "^4.23.13"
+  }
+}
