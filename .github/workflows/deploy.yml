@@ -1,0 +1,69 @@
+name: Deploy
+
+# Ships the hosted MCP (https://api.bazaarswap.io/mcp) to the Bazaar prod box once CI
+# passes on main. Can also be run by hand from the Actions tab.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TARGET: ${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          # Pinned host key: refuse to deploy to anything pretending to be the box.
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Ship, install, restart
+        run: |
+          tar czf - dist package.json package-lock.json | ssh "$TARGET" 'bash -s' <<'EOF'
+          set -euo pipefail
+          APP=/opt/bazaar/mcp
+          mkdir -p "$APP" && rm -rf "$APP/dist"
+          tar xzf - -C "$APP"
+          cd "$APP"
+          npm ci --omit=dev --no-audit --no-fund
+          sudo systemctl restart bazaarswap-mcp
+          EOF
+
+      - name: Health check
+        run: |
+          ssh "$TARGET" 'bash -s' <<'EOF'
+          for i in $(seq 1 15); do
+            if curl -fsS --max-time 3 http://127.0.0.1:3002/health; then echo; exit 0; fi
+            sleep 2
+          done
+          echo "MCP did not become healthy:"
+          sudo systemctl status bazaarswap-mcp --no-pager -n 40 || true
+          exit 1
+          EOF

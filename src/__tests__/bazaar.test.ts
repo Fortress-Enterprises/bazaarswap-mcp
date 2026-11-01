@@ -5,7 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getBaseUrl, getQuote, parseSseBuffer } from '../bazaar.js';
+import { forwardedFor, getBaseUrl, getQuote, parseSseBuffer } from '../bazaar.js';
 
 const ENV_KEYS = ['BAZAAR_API_URL', 'BAZAAR_API_KEY'] as const;
 
@@ -177,6 +177,18 @@ describe('swap.getQuote', () => {
     expect((init.headers as Record<string, string>).accept).toBe('text/event-stream');
   });
 
+  it('forwards the hosted caller IP so each caller keeps its own API rate limit', async () => {
+    const fetchMock = vi.fn(async () => sseResponse([SSE_FIXTURE]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await forwardedFor.run('203.0.113.7', () => getQuote(params));
+    await getQuote(params);
+
+    const headersOf = (i: number) => (fetchMock.mock.calls[i] as unknown as [string, RequestInit])[1].headers as Record<string, string>;
+    expect(headersOf(0)['x-forwarded-for']).toBe('203.0.113.7');
+    expect(headersOf(1)).not.toHaveProperty('x-forwarded-for');
+  });
+
   it('returns an empty race on no_routes', async () => {
     vi.stubGlobal(
       'fetch',
@@ -199,7 +211,7 @@ describe('swap.getQuote', () => {
 
 describe('getBaseUrl', () => {
   it('defaults to the production BazaarSwap API, since gateway children get no environment', () => {
-    expect(getBaseUrl()).toBe('https://bazaar-web.onrender.com');
+    expect(getBaseUrl()).toBe('https://api.bazaarswap.io');
   });
 
   it('honours BAZAAR_API_URL without a trailing slash', () => {

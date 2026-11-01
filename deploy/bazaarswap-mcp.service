@@ -1,0 +1,30 @@
+# Hosted BazaarSwap MCP on the Bazaar prod box. Installed to /etc/systemd/system/bazaarswap-mcp.service.
+# Code lives in /opt/bazaar/mcp (shipped by .github/workflows/deploy.yml). nginx serves it as
+# https://api.bazaarswap.io/mcp (deploy/nginx-mcp.conf).
+[Unit]
+Description=BazaarSwap MCP (Streamable HTTP)
+After=network-online.target bazaar-api.service
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+User=bazaar
+Group=bazaar
+WorkingDirectory=/opt/bazaar/mcp
+# Same box as the API: talk to it directly, not through nginx.
+Environment=NODE_ENV=production PORT=3002 HOST=127.0.0.1 BAZAAR_API_URL=http://127.0.0.1:3001
+# Optional, for BAZAAR_API_KEY. Every hosted caller reaches the API from 127.0.0.1 and so
+# shares one rate-limit bucket; a partner key raises that bucket's limits.
+EnvironmentFile=-/opt/bazaar/mcp.env
+ExecStart=/usr/bin/node dist/index.js --http
+Restart=always
+RestartSec=5
+MemoryMax=512M
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
