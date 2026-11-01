@@ -25,7 +25,8 @@ export function registerSwapTools(server: McpServer): void {
       title: 'Get cross-chain swap quotes',
       description:
         'Race the BazaarSwap routing backend for cross-chain swap quotes (for example EVM assets into ADA) and ' +
-        'return the best route plus every route found, sorted by net output. Read-only: quoting moves no funds. ' +
+        'return the best route plus every route found, best first: by USD received net of fees the wallet ' +
+        'pays on top (rankUSD), or by net output when a route is unpriced. Read-only: quoting moves no funds. ' +
         'Amounts are in the source token\'s smallest unit. The returned quoteId feeds build_swap_tx. ' +
         'The race can take up to ~35 seconds. An EMPTY result usually means the backend was cold-starting, ' +
         'not that no route exists: wait ~30 seconds and retry once before reporting no route.',

@@ -30,6 +30,8 @@ export interface QuoteFees {
   gas: { symbol: string; chain?: string; amount: string; amountUSD?: number }[];
   platform: { name: string; amountUSD: number }[];
   totalUSD: number;
+  /** What the wallet pays beyond inAmount: source gas plus native value sent on top. */
+  walletUSD?: number;
 }
 
 export interface Quote {
@@ -47,6 +49,8 @@ export interface Quote {
   fees: QuoteFees;
   inAmountUSD?: number;
   outAmountUSD?: number;
+  /** outAmountUSD minus fees.walletUSD: the API's ranking value. */
+  rankUSD?: number;
   estimatedArrivalSeconds: number;
   tx: { to: string; data: string; value: string; gasLimit?: string };
   approvalAddress?: string;
@@ -116,12 +120,19 @@ export function parseSseBuffer(buffer: string): { events: SseEvent[]; rest: stri
   return { events, rest };
 }
 
-function sortByNetOutputDesc(quotes: Quote[]): Quote[] {
-  return [...quotes].sort((a, b) => {
+/**
+ * Best first, by the API's own rule: rankUSD (USD output net of what the wallet pays on
+ * top, such as a protocol fee sent as tx.value) when every quote has it, else netOutput,
+ * which cannot see those fees. Mixing the two would make the order depend on arrival.
+ */
+function sortQuotes(quotes: Quote[]): Quote[] {
+  const byNet = (a: Quote, b: Quote) => {
     const av = BigInt(a.netOutput);
     const bv = BigInt(b.netOutput);
     return av === bv ? 0 : av > bv ? -1 : 1;
-  });
+  };
+  const allRanked = quotes.length > 0 && quotes.every((q) => Number.isFinite(q.rankUSD));
+  return [...quotes].sort(allRanked ? (a, b) => b.rankUSD! - a.rankUSD! || byNet(a, b) : byNet);
 }
 
 function buildQuoteUrl(params: SwapParams): string {
@@ -191,7 +202,7 @@ export async function getQuote(params: SwapParams): Promise<QuoteRaceResult> {
     clearTimeout(timer);
   }
 
-  const all = sortByNetOutputDesc([...quotes.values()]);
+  const all = sortQuotes([...quotes.values()]);
   return { best: all[0] ?? null, all };
 }
 

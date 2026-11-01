@@ -189,6 +189,30 @@ describe('swap.getQuote', () => {
     expect(headersOf(1)).not.toHaveProperty('x-forwarded-for');
   });
 
+  it('ranks on rankUSD when every quote has it, so a fee paid on top sinks the route', async () => {
+    // Live case: Rubic out-quotes Rango but needs a $0.72 protocol fee sent as tx.value.
+    const rubic = { ...quote('q-rubic', '438071694728150', 'Rubic'), rankUSD: 0.277 };
+    const rango = { ...quote('q-rango', '436231162114395', 'Rango'), rankUSD: 0.998 };
+    vi.stubGlobal('fetch', vi.fn(async () => sseResponse([
+      `event: quote\ndata: ${JSON.stringify(rubic)}\n\n`,
+      `event: quote\ndata: ${JSON.stringify(rango)}\n\nevent: done\ndata: {}\n\n`,
+    ])));
+
+    const result = await getQuote(params);
+    expect(result.all.map((q) => q.quoteId)).toEqual(['q-rango', 'q-rubic']);
+    expect(result.best?.quoteId).toBe('q-rango');
+  });
+
+  it('falls back to netOutput when any quote lacks rankUSD, so order never depends on arrival', async () => {
+    const priced = { ...quote('q-priced', '1000', 'rango'), rankUSD: 5 };
+    const unpriced = quote('q-unpriced', '2000', 'squid');
+    vi.stubGlobal('fetch', vi.fn(async () => sseResponse([
+      `event: quote\ndata: ${JSON.stringify(priced)}\n\nevent: quote\ndata: ${JSON.stringify(unpriced)}\n\nevent: done\ndata: {}\n\n`,
+    ])));
+
+    expect((await getQuote(params)).best?.quoteId).toBe('q-unpriced');
+  });
+
   it('returns an empty race on no_routes', async () => {
     vi.stubGlobal(
       'fetch',

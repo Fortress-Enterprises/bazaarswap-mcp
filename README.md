@@ -5,7 +5,7 @@ For example, an agent can move USDC on Base into ADA.
 
 | Tool | What it does | Funds |
 | --- | --- | --- |
-| `get_quote` | Races BazaarSwap's routing backend and returns the best route plus every route found, sorted by net output | read-only |
+| `get_quote` | Races BazaarSwap's routing backend and returns the best route plus every route found, best first after fees the wallet pays on top | read-only |
 | `build_swap_tx` | Turns a `quoteId` into transaction data | **unsigned** |
 
 - **Keyless.** It holds no keys and no funds, and never signs or broadcasts. The agent, or the user's
