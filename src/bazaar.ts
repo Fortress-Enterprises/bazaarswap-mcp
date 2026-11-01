@@ -13,6 +13,8 @@
  * BAZAAR_API_KEY (optional partner key; anonymous callers get a lower rate limit).
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks';
+
 export interface SwapParams {
   fromChain: string;
   toChain: string;
@@ -75,10 +77,20 @@ export function getBaseUrl(): string {
   return (process.env.BAZAAR_API_URL ?? 'https://api.bazaarswap.io').replace(/\/+$/, '');
 }
 
-/** Optional partner key for the Bazaar API (X-API-Key); unauthenticated without it. */
-export function apiKeyHeaders(): Record<string, string> {
+/**
+ * The hosted caller's IP, set per HTTP request. Hosted, every call reaches the API from
+ * the same box, so without it all callers would share one rate-limit bucket.
+ */
+export const forwardedFor = new AsyncLocalStorage<string>();
+
+/** Optional partner key (X-API-Key; unauthenticated without it) plus the hosted caller's IP. */
+export function upstreamHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
   const key = process.env.BAZAAR_API_KEY;
-  return key ? { 'X-API-Key': key } : {};
+  if (key) headers['X-API-Key'] = key;
+  const ip = forwardedFor.getStore();
+  if (ip) headers['x-forwarded-for'] = ip;
+  return headers;
 }
 
 /**
@@ -137,7 +149,7 @@ export async function getQuote(params: SwapParams): Promise<QuoteRaceResult> {
 
   try {
     const res = await fetch(buildQuoteUrl(params), {
-      headers: { accept: 'text/event-stream', ...apiKeyHeaders() },
+      headers: { accept: 'text/event-stream', ...upstreamHeaders() },
       signal: controller.signal,
     });
 
@@ -186,7 +198,7 @@ export async function getQuote(params: SwapParams): Promise<QuoteRaceResult> {
 export async function buildSwapTx(quoteId: string, userAddress: string): Promise<ExecuteResponse> {
   const res = await fetch(`${getBaseUrl()}/execute`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', ...apiKeyHeaders() },
+    headers: { 'content-type': 'application/json', ...upstreamHeaders() },
     body: JSON.stringify({ quoteId, userAddress }),
   });
 
