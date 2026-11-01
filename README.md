@@ -45,7 +45,7 @@ claude mcp add --transport http bazaarswap https://api.bazaarswap.io/mcp
 
 The Free plan allows one custom connector. On Team and Enterprise, an owner adds it for the
 organization. Do not put the URL in `claude_desktop_config.json`: that file is for local servers only.
-To run it locally instead, see [Run it locally](#run-it-locally).
+To run the server on your own machine instead, see [Run it locally](#run-it-locally).
 
 ### Cursor
 
@@ -143,22 +143,28 @@ If a client only runs local (stdio) servers, bridge it to the hosted endpoint wi
 
 ### Run it locally
 
-To run the server on your own machine over stdio, for example to use your own `BAZAAR_API_KEY`:
+The hosted endpoint is the supported way to connect. To run the server yourself, for example with
+your own `BAZAAR_API_KEY`, build it from source:
 
 ```bash
-claude mcp add bazaarswap -- npx -y bazaarswap-mcp@0.2.0
+git clone https://github.com/Fortress-Enterprises/bazaarswap-mcp && cd bazaarswap-mcp
+npm ci && npm run build
+claude mcp add bazaarswap -- node "$PWD/dist/index.js"
 ```
 
-Use the same `npx -y bazaarswap-mcp@0.2.0` command in any client's local server config, for example
-`claude_desktop_config.json`:
+For another client, use `node /absolute/path/to/bazaarswap-mcp/dist/index.js` as the local server
+command, for example in `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
-    "bazaarswap": { "command": "npx", "args": ["-y", "bazaarswap-mcp@0.2.0"] }
+    "bazaarswap": { "command": "node", "args": ["/absolute/path/to/bazaarswap-mcp/dist/index.js"] }
   }
 }
 ```
+
+The npm package (`bazaarswap-mcp@0.1.0`) predates the hosted endpoint: it calls the old backend and
+ranks routes without fees paid on top. Prefer the hosted endpoint or a source build.
 
 Environment, all optional:
 
@@ -167,7 +173,7 @@ Environment, all optional:
 | `BAZAAR_API_URL` | `https://api.bazaarswap.io` |
 | `BAZAAR_API_KEY` | none. Anonymous callers get a lower rate limit. |
 
-`bazaarswap-mcp --http` serves Streamable HTTP at `POST /mcp` instead of stdio, on `HOST:PORT`
+`node dist/index.js --http` serves Streamable HTTP at `POST /mcp` instead of stdio, on `HOST:PORT`
 (default `127.0.0.1:3002`). That is how the hosted endpoint runs: see `deploy/`.
 
 It is also listed in the [cardano-defi-mcp](https://github.com/ardey26/cardano-defi-mcp) taxonomy,
