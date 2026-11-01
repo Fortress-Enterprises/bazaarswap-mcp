@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import { registerSwapTools } from './tools.js';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 
 export function createServer(): McpServer {
   const server = new McpServer(
