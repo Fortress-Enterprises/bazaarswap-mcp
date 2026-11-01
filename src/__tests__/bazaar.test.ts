@@ -199,7 +199,7 @@ describe('swap.getQuote', () => {
 
 describe('getBaseUrl', () => {
   it('defaults to the production BazaarSwap API, since gateway children get no environment', () => {
-    expect(getBaseUrl()).toBe('https://bazaar-web.onrender.com');
+    expect(getBaseUrl()).toBe('https://api.bazaarswap.io');
   });
 
   it('honours BAZAAR_API_URL without a trailing slash', () => {

@@ -8,7 +8,7 @@
  * `no_routes`, `done`, `heartbeat`. The race re-runs on the same connection, so we
  * settle on the first `done` (or `no_routes`) and close the stream.
  *
- * Env: BAZAAR_API_URL (default https://bazaar-web.onrender.com, the production API —
+ * Env: BAZAAR_API_URL (default https://api.bazaarswap.io, the production API —
  * an MCP gateway runs this server with no environment, so the default must work),
  * BAZAAR_API_KEY (optional partner key; anonymous callers get a lower rate limit).
  */
@@ -72,7 +72,7 @@ export interface SseEvent {
 const RACE_TIMEOUT_MS = 35_000;
 
 export function getBaseUrl(): string {
-  return (process.env.BAZAAR_API_URL ?? 'https://bazaar-web.onrender.com').replace(/\/+$/, '');
+  return (process.env.BAZAAR_API_URL ?? 'https://api.bazaarswap.io').replace(/\/+$/, '');
 }
 
 /** Optional partner key for the Bazaar API (X-API-Key); unauthenticated without it. */

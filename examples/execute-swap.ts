@@ -21,7 +21,7 @@
  *   FROM_CHAIN=1|42161   FROM_TOKEN=native|0x…   AMOUNT=<wei>
  *   DEST_ADDRESS=addr1…  TO_CHAIN=CARDANO        TO_TOKEN=native
  *   USER_ADDRESS=0x…     (quote only, when no PRIVATE_KEY is set)
- *   SLIPPAGE=0.5         RPC_URL=…               BAZAAR_API_URL=https://bazaar-web.onrender.com
+ *   SLIPPAGE=0.5         RPC_URL=…               BAZAAR_API_URL=https://api.bazaarswap.io
  *   ENV_FILE=…           (which file `gen` appends PRIVATE_KEY to)
  *
  * USE A BURNER WALLET. Fund it with exactly what you intend to trade.
