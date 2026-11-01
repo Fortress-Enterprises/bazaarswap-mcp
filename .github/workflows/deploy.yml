@@ -46,11 +46,14 @@ jobs:
 
       - name: Ship, install, restart
         run: |
-          tar czf - dist package.json package-lock.json | ssh "$TARGET" 'bash -s' <<'EOF'
+          # Upload first: a heredoc script would take ssh's stdin away from the tarball.
+          tar czf "$RUNNER_TEMP/mcp.tgz" dist package.json package-lock.json
+          ssh "$TARGET" 'cat > /opt/bazaar/mcp.tgz' < "$RUNNER_TEMP/mcp.tgz"
+          ssh "$TARGET" 'bash -s' <<'EOF'
           set -euo pipefail
           APP=/opt/bazaar/mcp
           mkdir -p "$APP" && rm -rf "$APP/dist"
-          tar xzf - -C "$APP"
+          tar xzf /opt/bazaar/mcp.tgz -C "$APP" && rm /opt/bazaar/mcp.tgz
           cd "$APP"
           npm ci --omit=dev --no-audit --no-fund
           sudo systemctl restart bazaarswap-mcp
