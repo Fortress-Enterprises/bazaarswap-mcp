@@ -68,6 +68,27 @@ export interface ExecuteResponse {
   tracking?: string;
 }
 
+/** GET /status/{txHash}: TxStatusResponseSchema in packages/shared. */
+export interface SwapStatus {
+  txHash: string;
+  merchant?: string;
+  status: 'pending' | 'submitted' | 'bridging' | 'complete' | 'failed' | 'not_found' | 'untracked';
+  srcTxHash?: string;
+  destTxHash?: string;
+  srcExplorerUrl?: string;
+  destExplorerUrl?: string;
+  progressPercent?: number;
+  message?: string;
+  updatedAt: number;
+}
+
+export interface SwapStatusParams {
+  txHash: string;
+  /** The `tracking` token from build_swap_tx; registers the swap if the API doesn't know it. */
+  tracking?: string;
+  quoteId?: string;
+}
+
 export interface SseEvent {
   event: string;
   data: string;
@@ -218,4 +239,36 @@ export async function buildSwapTx(quoteId: string, userAddress: string): Promise
     throw new Error(`Bazaar API ${res.status} for /execute: ${body.slice(0, 200) || res.statusText}`);
   }
   return (await res.json()) as ExecuteResponse;
+}
+
+/**
+ * Poll a broadcast swap. The API answers 404 for a swap it was never told about (or
+ * forgot in a restart), so register it then, with the signed tracking token from
+ * /execute, and poll once more. Polling first keeps repeat calls from re-registering.
+ */
+export async function getSwapStatus({ txHash, tracking, quoteId }: SwapStatusParams): Promise<SwapStatus> {
+  const poll = () =>
+    fetch(`${getBaseUrl()}/status/${encodeURIComponent(txHash)}`, { headers: upstreamHeaders() });
+
+  let res = await poll();
+  if (res.status === 404) {
+    if (!tracking && !quoteId) {
+      throw new Error('This swap is not registered yet: pass the tracking token from build_swap_tx.');
+    }
+    const reg = await fetch(`${getBaseUrl()}/status/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...upstreamHeaders() },
+      body: JSON.stringify({ txHash, tracking, quoteId }),
+    });
+    if (!reg.ok) {
+      const body = await reg.text().catch(() => '');
+      throw new Error(`Bazaar API ${reg.status} for /status/register: ${body.slice(0, 200) || reg.statusText}`);
+    }
+    res = await poll();
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Bazaar API ${res.status} for /status: ${body.slice(0, 200) || res.statusText}`);
+  }
+  return (await res.json()) as SwapStatus;
 }

@@ -5,14 +5,14 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../server.js';
 
 describe('bazaarswap-mcp server', () => {
-  it('lists exactly get_quote and build_swap_tx', async () => {
+  it('lists exactly get_quote, build_swap_tx and get_swap_status', async () => {
     const server = createServer();
     const [a, b] = InMemoryTransport.createLinkedPair();
     await server.connect(a);
     const client = new Client({ name: 't', version: '0' });
     await client.connect(b);
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(['build_swap_tx', 'get_quote']);
+    expect(tools.map((t) => t.name).sort()).toEqual(['build_swap_tx', 'get_quote', 'get_swap_status']);
     // Without a Cardano recipient a swap into Cardano finds no route; the schema must say so.
     const recipient = (tools.find((t) => t.name === 'get_quote')?.inputSchema.properties as Record<string, { description?: string }>)
       .recipientAddress.description;

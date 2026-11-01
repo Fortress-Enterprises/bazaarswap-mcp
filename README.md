@@ -7,6 +7,7 @@ For example, an agent can move USDC on Base into ADA.
 | --- | --- | --- |
 | `get_quote` | Races BazaarSwap's routing backend and returns the best route plus every route found, best first after fees the wallet pays on top | read-only |
 | `build_swap_tx` | Turns a `quoteId` into transaction data | **unsigned** |
+| `get_swap_status` | Follows a submitted swap, from its tx hash and the `tracking` token `build_swap_tx` returns, until it completes or fails | read-only |
 
 - **Keyless.** It holds no keys and no funds, and never signs or broadcasts. The agent, or the user's
   wallet, signs what `build_swap_tx` returns.

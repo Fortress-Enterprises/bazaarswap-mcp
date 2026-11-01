@@ -24,7 +24,7 @@ describe('bazaarswap-mcp over Streamable HTTP', () => {
     const client = new Client({ name: 't', version: '0' });
     await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/mcp`)));
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(['build_swap_tx', 'get_quote']);
+    expect(tools.map((t) => t.name).sort()).toEqual(['build_swap_tx', 'get_quote', 'get_swap_status']);
     await client.close();
   });
 
@@ -37,7 +37,7 @@ describe('bazaarswap-mcp over Streamable HTTP', () => {
       }),
     );
     for (const client of clients) {
-      expect((await client.listTools()).tools).toHaveLength(2);
+      expect((await client.listTools()).tools).toHaveLength(3);
       await client.close();
     }
   });

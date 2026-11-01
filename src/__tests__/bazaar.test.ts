@@ -5,7 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { forwardedFor, getBaseUrl, getQuote, parseSseBuffer } from '../bazaar.js';
+import { forwardedFor, getBaseUrl, getQuote, getSwapStatus, parseSseBuffer } from '../bazaar.js';
 
 const ENV_KEYS = ['BAZAAR_API_URL', 'BAZAAR_API_KEY'] as const;
 
@@ -230,6 +230,52 @@ describe('swap.getQuote', () => {
     );
 
     await expect(getQuote(params)).rejects.toThrow(/400 for \/events\/market/);
+  });
+});
+
+// ── swap.getSwapStatus ───────────────────────────────────────────────────────
+
+describe('swap.getSwapStatus', () => {
+  const TX = '0xfe6554f12ccc3e0440b844ebe35d38e9dba8d4ad00204fe55ff5df15d7306cce';
+  const bridging = { txHash: TX, merchant: 'Rango', status: 'bridging', updatedAt: 1 };
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+  const unregistered = () => json({ txHash: TX, status: 'not_found', updatedAt: 1 }, 404);
+
+  it('polls a registered swap without registering it again', async () => {
+    const fetchMock = vi.fn(async () => json(bridging));
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(await getSwapStatus({ txHash: TX, tracking: 't' })).toEqual(bridging);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]![0]).toBe(`https://api.bazaarswap.io/status/${TX}`);
+  });
+
+  it('registers an unknown swap with its tracking token, then polls again', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(unregistered())
+      .mockResolvedValueOnce(json({ ok: true, key: TX }))
+      .mockResolvedValueOnce(json(bridging));
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(await getSwapStatus({ txHash: TX, tracking: 'tok.sig' })).toEqual(bridging);
+    const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe('https://api.bazaarswap.io/status/register');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ txHash: TX, tracking: 'tok.sig' });
+  });
+
+  it('asks for the tracking token when an unknown swap comes without one', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => unregistered()));
+    await expect(getSwapStatus({ txHash: TX })).rejects.toThrow(/tracking token from build_swap_tx/);
+  });
+
+  it('reports a refused registration with its status', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce(unregistered()).mockResolvedValueOnce(json({ error: 'Quote not found or expired' }, 404)),
+    );
+    await expect(getSwapStatus({ txHash: TX, tracking: 'stale' })).rejects.toThrow(/404 for \/status\/register: .*expired/);
   });
 });
 

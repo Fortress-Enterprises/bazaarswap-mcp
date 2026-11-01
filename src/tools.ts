@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 
-import { buildSwapTx, getQuote } from './bazaar.js';
+import { buildSwapTx, getQuote, getSwapStatus } from './bazaar.js';
 
 /**
  * Run an adapter call and shape it into an MCP tool result.
@@ -58,7 +58,8 @@ export function registerSwapTools(server: McpServer): void {
       description:
         'Turn a quoteId from get_quote into transaction data for the swap. Returns an UNSIGNED transaction: ' +
         'this server never holds keys, never signs and never broadcasts. The calling agent (or the user\'s ' +
-        'wallet) signs and submits it. Quotes expire, so build shortly after quoting.',
+        'wallet) signs and submits it. Quotes expire, so build shortly after quoting. After submitting, ' +
+        'follow the swap with get_swap_status, passing the tx hash and the returned tracking token.',
       inputSchema: {
         quoteId: z.string().min(1).describe('quoteId from a get_quote result'),
         userAddress: z.string().min(1).describe('Sender address the transaction is built for'),
@@ -70,5 +71,28 @@ export function registerSwapTools(server: McpServer): void {
         ...(await buildSwapTx(quoteId, userAddress)),
         signing: 'UNSIGNED. Sign with your own keys and submit; this server holds no keys and no funds.',
       })),
+  );
+
+  server.registerTool(
+    'get_swap_status',
+    {
+      title: 'Track a swap to completion',
+      description:
+        'Report where a submitted swap is, from the source-chain tx hash. Pass the tracking token that ' +
+        'build_swap_tx returned: the first call uses it to register the swap. status: pending, submitted or ' +
+        'bridging = in flight, poll again in ~30 seconds; not_found = the provider has not indexed the tx yet, ' +
+        'poll again; complete = delivered (destTxHash is the destination tx); failed = stopped, see message; ' +
+        'untracked = this provider exposes no status, check the explorer. Moves no funds.',
+      inputSchema: {
+        txHash: z.string().min(4).describe('Hash of the submitted source-chain transaction'),
+        tracking: z
+          .string()
+          .optional()
+          .describe('The tracking token from build_swap_tx. Needed on the first call; tokens last 24 hours.'),
+        quoteId: z.string().optional().describe('The quoteId, if the tracking token was lost'),
+      },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+    },
+    async (params) => toolResult(() => getSwapStatus(params)),
   );
 }
